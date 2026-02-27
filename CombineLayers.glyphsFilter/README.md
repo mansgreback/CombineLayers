@@ -76,6 +76,18 @@ Filter = CombineLayers;Cutout;exclusion;positive
 - Requires **Glyphs 3**
 - Works with masters and non-master (bracket, brace, or custom) layers
 
+## Credits
+
+Based on [MergeLayer](https://github.com/schriftgestalt/MergeLayer) by Georg Seifert.
+
 ## License
 
-Copyright 2026. MIT License.
+Copyright 2026 Mans Greback.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+See the [LICENSE](LICENSE) file for details.
