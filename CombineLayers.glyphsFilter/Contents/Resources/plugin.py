@@ -281,16 +281,29 @@ class CombineLayers(FilterWithDialog):
 
 	@objc.python_method
 	def _prepareBShapes(self, addLayer, path_op):
-		"""Prepare B shapes based on path direction option."""
+		"""Prepare B shapes based on path direction option.
+
+		If the source layer contains components, decompose them via
+		copyDecomposedLayer (which keeps master/parent context — a plain
+		layer.copy() + decomposeComponents() orphans the layer and yields
+		zero paths). Otherwise the OTF/Type1 writer fails on the leftover
+		component references appended to the target layer.
+		"""
+		def decomposed(layer):
+			if any(s.__class__.__name__ == "GSComponent" for s in layer.shapes):
+				return layer.copyDecomposedLayer()
+			return layer
+
+		src = decomposed(addLayer)
 		if path_op == "revert":
 			shapes = []
-			for s in addLayer.shapes:
+			for s in src.shapes:
 				c = s.copy()
 				c.reverse()
 				shapes.append(c)
 			return shapes
 		elif path_op == "positive":
-			temp = addLayer.copy()
+			temp = decomposed(src).copy() if src is addLayer else src.copy()
 			temp.removeOverlap()
 			try:
 				temp.correctPathDirection()
@@ -298,7 +311,7 @@ class CombineLayers(FilterWithDialog):
 				pass
 			return [s.copy() for s in temp.shapes]
 		elif path_op == "negative":
-			temp = addLayer.copy()
+			temp = decomposed(src).copy() if src is addLayer else src.copy()
 			temp.removeOverlap()
 			try:
 				temp.correctPathDirection()
@@ -311,7 +324,7 @@ class CombineLayers(FilterWithDialog):
 				shapes.append(c)
 			return shapes
 		else:  # "current"
-			return [s.copy() for s in addLayer.shapes]
+			return [s.copy() for s in src.shapes]
 
 	@objc.python_method
 	def _getResolvedBShapes(self, addLayer):
