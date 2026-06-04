@@ -236,16 +236,46 @@ class CombineLayers(FilterWithDialog):
 			return "%s;%s;%s;%s" % (self.__class__.__name__, layerName, boolOp, pathOp)
 
 	@objc.python_method
-	def _findOriginalFont(self):
+	def _findOriginalFont(self, exportFont=None):
+		"""Locate the user's source font, NOT the temporary export copy that
+		Glyphs hands us during instance generation. The temp copy has the
+		same filepath as the original but is a different object — and crucially
+		it can have ANY master count (e.g. a single-master font generates a
+		single-master temp copy, so the old `> 1 masters` heuristic excluded
+		legitimate single-master originals).
+
+		Order of preference:
+		  1. An open font with the same filepath that is NOT the temp copy.
+		  2. Glyphs.font (foreground document), as long as it's not the temp copy.
+		  3. Any other open font that isn't the temp copy.
+		"""
+		target_path = None
+		try:
+			target_path = exportFont.filepath if exportFont else None
+		except:
+			target_path = None
+
+		try:
+			for f in Glyphs.fonts:
+				if f is exportFont:
+					continue
+				try:
+					if target_path and getattr(f, 'filepath', None) == target_path:
+						return f
+				except:
+					continue
+		except:
+			pass
+
 		try:
 			f = Glyphs.font
-			if f and len(f.masters) > 1:
+			if f and f is not exportFont:
 				return f
 		except:
 			pass
 		try:
 			for f in Glyphs.fonts:
-				if f and len(f.masters) > 1:
+				if f and f is not exportFont:
 					return f
 		except:
 			pass
@@ -338,7 +368,10 @@ class CombineLayers(FilterWithDialog):
 	@objc.python_method
 	def _categorizeBPaths(self, addLayer):
 		"""Categorize B paths into positive, inner negative, and freestanding negative."""
-		origPaths = [s.copy() for s in addLayer.shapes]
+		temp = addLayer.copy()
+		if temp.components:
+			temp.decomposeComponents()
+		origPaths = [s.copy() for s in temp.paths]
 		positive = [s for s in origPaths if s.direction == -1]
 		innerNeg = []
 		freestandingNeg = []
@@ -421,7 +454,12 @@ class CombineLayers(FilterWithDialog):
 		glyph = layer.parent
 		if not glyph:
 			return
-		font = self._findOriginalFont()
+		exportFont = None
+		try:
+			exportFont = glyph.parent
+		except:
+			exportFont = None
+		font = self._findOriginalFont(exportFont=exportFont)
 		if not font:
 			return
 
